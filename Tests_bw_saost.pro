@@ -107,6 +107,8 @@ print,  tflux
 print,  tflux*t02
 
 ;------------------
+;Couplage complexe pupille rx + mode SMF (non approximé)
+;------------------
 
 lambda =  1.55e-6
 dsat =  1000e3
@@ -173,3 +175,75 @@ print,  d*b ; pertes géométriques + couplage SMF (approx)
 ;------------------
 k =  abs2(total(rx2*p2*Mo*da))
 print,  k/b ; pertes géométriques + couplage SMF 
+
+;---------------------------------------------
+;+ jitter
+;------------------
+
+lambda =  1.55e-6
+dsat =  1000e3
+
+thetad =  10e-6
+thetap =  1e-6
+x = sqrt(8)
+w0 =  lambda/(!pi*thetad)
+dtx = w0*x
+drx = 1.5
+
+lar =  6000.
+
+d1 = 10
+polaire2, rt=d1/2., largeur=lar, masque=p1
+tvwin,  p1,  1, zoom = -1
+
+du = (dtx/d1)/lambda
+
+b = total(abs2(p1*du))
+print,  b
+
+rx =  fftshift(p1)*du^2*lar^2
+print,  max(rx)
+;rx = rx*(drx/d2)^2;/max(rx)
+tvwin,  abs(rx),   3, zoom = -1
+
+rairy =  1.22*lambda*dsat/dtx
+
+p =  plot(abs(rx[lar/2, *]),  thick =  2,  xrange =  [0, lar])
+
+mm =  min(abs(rx[lar/2, lar/2:lar/2+lar/6]),jj)
+print, jj
+
+d2 = round(1.5*jj/rairy)
+print,  d2
+polaire2, rt=d2/2., largeur=d2, masque=p2
+
+fwo = 1./(!pi*0.71)
+wo = fwo*d2
+R = distc(d2,cx=d2/2,cy=d2/2)
+Mo = sqrt(2/(!pi*wo^2))*exp(-R^2/wo^2)
+
+llim =  (lar-d2)/2
+ulim =  llim+d2-1
+
+n =  10000
+
+sigmar = thetap*dsat
+
+dx =  sigmar*randomn(seed, n)*jj/rairy
+dy =  sigmar*randomn(seed, n)*jj/rairy
+
+k =  fltarr(n)
+
+FOR kk =  0,  n-1 DO BEGIN
+  shifted =  shift(rx,  dx[kk],  dy[kk])
+  rx2 = shifted[llim:ulim, llim:ulim]
+  ;tvwin, rx2, 4,  zoom =  -1
+
+  k[kk] =  abs2(total(rx2*p2*Mo*da))/b
+  print,  k[kk] ; pertes géométriques + couplage SMF
+
+ENDFOR
+
+h = histogram(k,nbin=sqrt(n) ,LOCATIONS=x)
+
+p =  plot(x, h)
